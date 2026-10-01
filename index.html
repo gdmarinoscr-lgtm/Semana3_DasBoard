@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Observatorio Electoral - Provincia de Bolívar</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Leaflet.js (Mapas) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .tab-btn.active { border-bottom: 3px solid #b91c1c; color: #b91c1c; font-weight: bold; }
+        #map { height: 420px; border-radius: 0.5rem; }
+    </style>
+</head>
+<body class="bg-slate-100 font-sans text-slate-800">
+
+    <!-- Header -->
+    <header class="bg-slate-900 text-white shadow-lg border-b-4 border-red-700">
+        <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold tracking-wide">Observatorio Electoral LADEP</h1>
+                <p class="text-xs text-slate-400">Provincia de Bolívar, La Libertad | Elecciones 2026</p>
+            </div>
+            <span class="bg-red-800 text-red-100 text-xs px-3 py-1 rounded-full font-semibold">Reporte Oficial</span>
+        </div>
+    </header>
+
+    <!-- Navegación por Pestañas -->
+    <nav class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-6 flex space-x-8">
+            <button onclick="switchTab('mapa-tab')" id="btn-mapa-tab" class="tab-btn active py-4 text-sm flex items-center gap-2">
+                <i class="fa-solid fa-map-location-dot"></i> Mapa y Ficha Distrital
+            </button>
+            <button onclick="switchTab('chicuadrado-tab')" id="btn-chicuadrado-tab" class="tab-btn py-4 text-sm text-slate-500 flex items-center gap-2">
+                <i class="fa-solid fa-chart-pie"></i> Chi-Cuadrado y Feudos (Haberman)
+            </button>
+            <button onclick="switchTab('multivariado-tab')" id="btn-multivariado-tab" class="tab-btn py-4 text-sm text-slate-500 flex items-center gap-2">
+                <i class="fa-solid fa-diagram-project"></i> Análisis Multivariado (PCA / Clustering)
+            </button>
+        </div>
+    </nav>
+
+    <!-- Contenido Principal -->
+    <main class="max-w-7xl mx-auto px-6 py-6">
+
+        <!-- ==================== PESTAÑA 1: MAPA Y FICHA ==================== -->
+        <section id="mapa-tab" class="tab-content space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                <!-- Columna Izquierda: Mapa / Selección -->
+                <div class="lg:col-span-7 bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                    <h2 class="text-lg font-bold text-slate-800 mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-earth-americas text-red-700"></i> Selecciona un Distrito de Bolívar
+                    </h2>
+                    <div id="map"></div>
+                    <div class="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
+                        <button onclick="selectDistrict('130301')" class="p-2 bg-slate-100 hover:bg-red-50 border rounded font-medium">Bolívar (Capital)</button>
+                        <button onclick="selectDistrict('130302')" class="p-2 bg-slate-100 hover:bg-red-50 border rounded font-medium">Bambamarca</button>
+                        <button onclick="selectDistrict('130303')" class="p-2 bg-slate-100 hover:bg-red-50 border rounded font-medium">Condormarca</button>
+                        <button onclick="selectDistrict('130304')" class="p-2 bg-slate-100 hover:bg-red-50 border rounded font-medium">Longotea</button>
+                        <button onclick="selectDistrict('130305')" class="p-2 bg-slate-100 hover:bg-red-50 border rounded font-medium">Uchumarca</button>
+                        <button onclick="selectDistrict('130306')" class="p-2 bg-slate-100 hover:bg-red-50 border rounded font-medium">Ucuncha</button>
+                    </div>
+                </div>
+
+                <!-- Columna Derecha: Tarjeta de Métricas -->
+                <div class="lg:col-span-5 bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-5">
+                    <div class="border-b pb-3">
+                        <span class="text-xs font-semibold uppercase text-red-700 tracking-wider">Distrito Seleccionado</span>
+                        <h3 id="card-distrito" class="text-2xl font-extrabold text-slate-900">Bolívar (Capital)</h3>
+                        <p id="card-ubigeo" class="text-xs text-slate-400">UBIGEO: 130301</p>
+                    </div>
+
+                    <!-- Métricas Participación -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="p-3 bg-slate-50 rounded-lg border">
+                            <p class="text-xs text-slate-500">Electores Hábiles</p>
+                            <p id="card-electores" class="text-lg font-bold text-slate-800">0</p>
+                        </div>
+                        <div class="p-3 bg-slate-50 rounded-lg border">
+                            <p class="text-xs text-slate-500">Votos Emitidos</p>
+                            <p id="card-emitidos" class="text-lg font-bold text-slate-800">0</p>
+                        </div>
+                        <div class="p-3 bg-emerald-50 rounded-lg border border-emerald-200">
+                            <p class="text-xs text-emerald-700 font-medium">Participación</p>
+                            <p id="card-participacion" class="text-xl font-black text-emerald-800">0%</p>
+                        </div>
+                        <div class="p-3 bg-amber-50 rounded-lg border border-amber-200">
+                            <p class="text-xs text-amber-700 font-medium">Ausentismo</p>
+                            <p id="card-ausentismo" class="text-xl font-black text-amber-800">0%</p>
+                        </div>
+                    </div>
+
+                    <!-- Métricas Votos Válidos vs No Válidos -->
+                    <div class="p-3 bg-slate-50 rounded-lg border space-y-1">
+                        <div class="flex justify-between text-xs">
+                            <span class="text-slate-600 font-medium">% Votos No Válidos (Blancos/Nulos)</span>
+                            <span id="card-novalidos" class="font-bold text-red-700">0%</span>
+                        </div>
+                        <div class="w-full bg-slate-200 rounded-full h-2">
+                            <div id="bar-novalidos" class="bg-red-600 h-2 rounded-full" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Ganador y Competitividad -->
+                    <div class="p-4 bg-slate-900 text-white rounded-xl space-y-3">
+                        <div>
+                            <p class="text-xs text-amber-400 font-semibold uppercase">🥇 Ganador Distrital</p>
+                            <p id="card-ganador" class="font-bold text-base">---</p>
+                            <p id="card-pct-ganador" class="text-xs text-slate-300">0% del voto válido</p>
+                        </div>
+                        <div class="border-t border-slate-700 pt-2 flex justify-between items-center">
+                            <div>
+                                <p class="text-xs text-slate-400">🥈 Segundo Lugar</p>
+                                <p id="card-segundo" class="text-sm font-semibold text-slate-200">---</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-xs text-slate-400">Margen de Victoria</p>
+                                <p id="card-margen" class="text-base font-extrabold text-amber-400">0%</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ==================== PESTAÑA 2: CHI-CUADRADO Y FEUDOS ==================== -->
+        <section id="chicuadrado-tab" class="tab-content hidden space-y-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <h2 class="text-xl font-bold text-slate-900 mb-2">Prueba Estadística de Chi-Cuadrado (\(\chi^2\))</h2>
+                <div class="p-4 bg-slate-50 rounded-lg border border-slate-200 grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div>
+                        <p class="text-xs text-slate-500">Estadístico \(\chi^2\)</p>
+                        <p class="text-2xl font-black text-slate-800">9,476.14</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-slate-500">p-valor</p>
+                        <p class="text-2xl font-black text-emerald-700">0.0000 (&lt; 0.05)</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-slate-500">Grados de Libertad</p>
+                        <p class="text-2xl font-black text-slate-800">175</p>
+                    </div>
+                </div>
+                <p class="text-sm text-slate-600 mb-6">
+                    <strong>Interpretación:</strong> La relación entre el distrito geográfico y la preferencia partidaria es altamente significativa. Existe una fuerte concentración territorial del voto.
+                </p>
+
+                <h3 class="text-lg font-bold text-slate-800 mb-3">Feudos y Sobrerrepresentación (Residuos Ajustados de Haberman \(Z > +1.96\))</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div class="p-4 bg-red-50 border border-red-200 rounded-lg">
+                        <h4 class="font-bold text-red-900 border-b border-red-200 pb-1 mb-2">Ucuncha</h4>
+                        <ul class="text-xs space-y-1 text-red-800">
+                            <li>• <strong>Fuerza Popular:</strong> Residuo = +46.84</li>
+                            <li>• Partido Cívico Obras: Residuo = +14.79</li>
+                            <li>• APRA: Residuo = +9.07</li>
+                        </ul>
+                    </div>
+                    <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                        <h4 class="font-bold text-slate-900 border-b border-slate-200 pb-1 mb-2">Bolívar (Capital)</h4>
+                        <ul class="text-xs space-y-1 text-slate-700">
+                            <li>• <strong>Partido del Buen Gobierno:</strong> Residuo = +38.18</li>
+                            <li>• Renovación Popular: Residuo = +28.98</li>
+                            <li>• Primero La Gente: Residuo = +21.80</li>
+                        </ul>
+                    </div>
+                    <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                        <h4 class="font-bold text-slate-900 border-b border-slate-200 pb-1 mb-2">Uchumarca</h4>
+                        <ul class="text-xs space-y-1 text-slate-700">
+                            <li>• <strong>Alianza para el Progreso:</strong> Residuo = +35.30</li>
+                            <li>• Fuerza Popular: Residuo = +10.73</li>
+                            <li>• Juntos por el Perú: Residuo = +5.61</li>
+                        </ul>
+                    </div>
+                    <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                        <h4 class="font-bold text-slate-900 border-b border-slate-200 pb-1 mb-2">Bambamarca</h4>
+                        <ul class="text-xs space-y-1 text-slate-700">
+                            <li>• <strong>Juntos por el Perú:</strong> Residuo = +14.08</li>
+                            <li>• Somos Perú: Residuo = +5.04</li>
+                        </ul>
+                    </div>
+                    <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                        <h4 class="font-bold text-slate-900 border-b border-slate-200 pb-1 mb-2">Longotea</h4>
+                        <ul class="text-xs space-y-1 text-slate-700">
+                            <li>• <strong>Juntos por el Perú:</strong> Residuo = +14.03</li>
+                            <li>• APP: Residuo = +11.89</li>
+                            <li>• APRA: Residuo = +6.46</li>
+                        </ul>
+                    </div>
+                    <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                        <h4 class="font-bold text-slate-900 border-b border-slate-200 pb-1 mb-2">Condormarca</h4>
+                        <ul class="text-xs space-y-1 text-slate-700">
+                            <li>• <strong>Fuerza Popular:</strong> Residuo = +15.84</li>
+                            <li>• Podemos Perú: Residuo = +5.32</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== PESTAÑA 3: MULTIVARIADO ==================== -->
+        <section id="multivariado-tab" class="tab-content hidden space-y-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <h2 class="text-xl font-bold text-slate-900 mb-2">Análisis de Componentes Principales (PCA) y Clustering</h2>
+                <p class="text-sm text-slate-600 mb-6">Agrupación de distritos según la similitud de su comportamiento político-electoral.</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="p-4 bg-slate-50 rounded-lg border text-center">
+                        <h3 class="font-bold text-slate-800 mb-2">Mapa del Espacio Electoral (PCA)</h3>
+                        <img src="pca_distritos_bolivar.png" alt="PCA Bolívar" class="mx-auto rounded shadow-sm max-h-80 object-contain">
+                    </div>
+                    <div class="p-4 bg-slate-50 rounded-lg border text-center">
+                        <h3 class="font-bold text-slate-800 mb-2">Dendrograma de Similitud (Clustering)</h3>
+                        <img src="dendrograma_distritos_bolivar.png" alt="Dendrograma Bolívar" class="mx-auto rounded shadow-sm max-h-80 object-contain">
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Scripts JavaScript -->
+    <script>
+        // Datos integrados directamente
+        const distritosData = {
+            "130301": { nombre: "Bolívar (Capital)", electores: 60403, emitidos: 46614, part: 77.17, ausen: 22.83, noval: 19.64, ganador: "PARTIDO DEL BUEN GOBIERNO", pctG: 22.23, segundo: "RENOVACIÓN POPULAR", pctS: 11.47, margen: 10.76, lat: -7.1550, lng: -77.8350 },
+            "130302": { nombre: "Bambamarca", electores: 1726, emitidos: 1351, part: 78.27, ausen: 21.73, noval: 25.39, ganador: "JUNTOS POR EL PERÚ", pctG: 30.36, segundo: "SOMOS PERÚ", pctS: 27.28, margen: 3.08, lat: -7.4333, lng: -77.7000 },
+            "130303": { nombre: "Condormarca", electores: 8585, emitidos: 6139, part: 71.51, ausen: 28.49, noval: 18.55, ganador: "FUERZA POPULAR", pctG: 41.48, segundo: "PODEMOS PERÚ", pctS: 12.74, margen: 28.74, lat: -7.1167, lng: -77.9667 },
+            "130304": { nombre: "Longotea", electores: 14074, emitidos: 10384, part: 73.78, ausen: 26.22, noval: 23.05, ganador: "JUNTOS POR EL PERÚ", pctG: 31.62, segundo: "ALIANZA PARA EL PROGRESO", pctS: 17.58, margen: 14.04, lat: -7.0333, lng: -77.8667 },
+            "130305": { nombre: "Uchumarca", electores: 15813, emitidos: 12015, part: 75.98, ausen: 24.02, noval: 21.45, ganador: "ALIANZA PARA EL PROGRESO", pctG: 36.23, segundo: "FUERZA POPULAR", pctS: 14.45, margen: 21.78, lat: -7.0167, lng: -77.7833 },
+            "130306": { nombre: "Ucuncha", electores: 27961, emitidos: 21529, part: 77.00, ausen: 23.00, noval: 23.08, ganador: "FUERZA POPULAR", pctG: 46.40, segundo: "PARTIDO CÍVICO OBRAS", pctS: 12.11, margen: 34.29, lat: -7.1833, lng: -77.8833 }
+        };
+
+        // Inicializar Mapa Leaflet
+        const map = L.map('map').setView([-7.1550, -77.8350], 9);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        // Agregar Marcadores de Distritos
+        Object.keys(distritosData).forEach(ubigeo => {
+            const d = distritosData[ubigeo];
+            const marker = L.marker([d.lat, d.lng]).addTo(map);
+            marker.bindPopup(`<b>${d.nombre}</b><br>Ganador: ${d.ganador}`);
+            marker.on('click', () => selectDistrict(ubigeo));
+        });
+
+        // Función para actualizar tarjeta
+        function selectDistrict(ubigeo) {
+            const d = distritosData[ubigeo];
+            if (!d) return;
+
+            document.getElementById('card-distrito').innerText = d.nombre;
+            document.getElementById('card-ubigeo').innerText = `UBIGEO: ${ubigeo}`;
+            document.getElementById('card-electores').innerText = d.electores.toLocaleString();
+            document.getElementById('card-emitidos').innerText = Math.round(d.emitidos).toLocaleString();
+            document.getElementById('card-participacion').innerText = `${d.part}%`;
+            document.getElementById('card-ausentismo').innerText = `${d.ausen}%`;
+            document.getElementById('card-novalidos').innerText = `${d.noval}%`;
+            document.getElementById('bar-novalidos').style.width = `${d.noval}%`;
+            
+            document.getElementById('card-ganador').innerText = d.ganador;
+            document.getElementById('card-pct-ganador').innerText = `${d.pctG}% de votos válidos`;
+            document.getElementById('card-segundo').innerText = d.segundo;
+            document.getElementById('card-margen').innerText = `${d.margen}%`;
+
+            map.panTo([d.lat, d.lng]);
+        }
+
+        // Navegación de Pestañas
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(el => {
+                el.classList.remove('active');
+                el.classList.add('text-slate-500');
+            });
+
+            document.getElementById(tabId).classList.remove('hidden');
+            document.getElementById(`btn-${tabId}`).classList.add('active');
+            document.getElementById(`btn-${tabId}`).classList.remove('text-slate-500');
+            
+            if (tabId === 'mapa-tab') setTimeout(() => map.invalidateSize(), 200);
+        }
+
+        // Inicializar por defecto
+        selectDistrict('130301');
+    </script>
+</body>
+</html>
